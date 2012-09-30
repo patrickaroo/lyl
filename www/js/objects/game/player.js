@@ -17,7 +17,11 @@
     var _private = {
         calcMag: function (obj) {
             var speedCalc = obj.speedX * obj.speedX + obj.speedY * obj.speedY;
-            return Math.sqrt(speedCalc);
+            speedCalc = Math.sqrt(speedCalc);
+            return cp.math.round(speedCalc);
+        },
+        calcMom: function (obj) {
+            var momentum = this.calcMag(obj) * obj.mass;
         }
     };
 
@@ -30,6 +34,7 @@
         width: 80,
         height: 80,
         color: '#00f',
+        mass: 3,
 
         angle: 0,
 
@@ -136,10 +141,6 @@
 			if(this.y < 5) {
 				this.y = 5;
 			}
-
-            if(this.speedX || this.speedY) {
-	    		socket.emit('entity-server-update', { id: this.id, x: this.x, y: this.y} );
-            }
         },
 
 		turnLeft: function() {
@@ -159,16 +160,24 @@
                 // Who hit who?
                 if (_private.calcMag(this) > _private.calcMag(obj)) {
                     console.log('enemy smash');
+                    this.mass -= .05;
+                    obj.mass += .05;
+                    cp.game.spawn('LemmingExplosion', this.x, this.y);
                 } else {
+                    this.ass += .05;
+                    Object.mass -= .05;
                     console.log('player smash');
+                    cp.game.spawn('LemmingExplosion', obj.x, obj.y);
                 }
 
-                if(!collided)
+                if(this.collided == false)
                 {
-                    collided = true;
-                    collisionTimer = 100;
-                    obj.speedY *= -1;
-                    obj.speedX *= -1;
+                    this.collided = true;
+                    this.collisionTimer = 100;
+                    obj.speedY *= -this.mass;
+                    obj.speedX *= -this.mass;
+                    this.speedY *= -obj.mass;
+                    this.speedX *= -obj.mass;
                     obj.x = obj.x + obj.speedX * (cp.core.delta * _deltaSlow); // times momentum
                     obj.y = obj.y + obj.speedY * (cp.core.delta * _deltaSlow); // times momentum
                     this.x = this.x + this.speedX * (cp.core.delta * _deltaSlow); // times momentum
@@ -196,17 +205,20 @@
 
     cp.template.ActivePlayer = cp.template.Player.extend({
     	type: 'a',
+        
+        socketDelay: 6,
+        socketDelayCount: 6,
 
     	update: function(){
     	    // Update timers
-    	    /*if(collided)
+    	    if(this.collided == true)
     	    {
-                collisionTimer = collisionTimer - cp.core.delta;
-                if(collisionTimer <= 0) {
-                    collided = false;
-                    collisionTimer = 0;
+                this.collisionTimer = this.collisionTimer - cp.core.delta;
+                if(this.collisionTimer <= 0) {
+                    this.collided = false;
+                    this.collisionTimer = 0;
                 }
-    	    }*/
+    	    }
 
     		//// Update our input
             if (window.DeviceMotionEvent) {
@@ -251,6 +263,28 @@
                     }
                 }
             }
+
+			if(this.socketDelayCount) {
+				if(this.socketDelayCount % 2){
+					var data = {
+		    			id: this.id
+					};
+					if(this.socketDelayCount % 3) {
+						data.speedX = this.speedX;
+						data.speedY = this.speedY;
+					} else {
+						data.x = this.x;
+						data.y = this.y;
+					}
+					
+		    		socket.emit('entity-server-update', data);
+				}
+	    		
+				this.socketDelayCount--;
+			} else {
+				console.log("sending nothing");
+				this.socketDelayCount = this.socketDelay;
+			}
 
             // Call the Player Update
             this._super();
