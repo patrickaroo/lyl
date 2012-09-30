@@ -7,11 +7,11 @@
 
     /** @type {number} Cached reference of game's play area */
     var _gameHeight = null;
-    
+
     var _deltaSlow = 1/30;
 
     var _playerSize = 10;
-    
+
     var _debug = false;
 
     var _private = {
@@ -33,6 +33,9 @@
 
         angle: 0,
 
+        collisionTimer: 0,
+        collided: false,
+
         speedX: 0,
         speedY: 0,
         accelRate: 0.2,
@@ -43,7 +46,7 @@
         turnRate: 0.025,
         turnLeft: false,
         turnRight: false,
-        
+
         inCollision: false,
 
         init: function (serverID, x, y) {
@@ -53,7 +56,7 @@
             if (_gameHeight  === null) {
                 _gameHeight = cp.core.canvasHeight;
             }
-            
+
             this.x = x
             this.y = y;
 
@@ -63,42 +66,53 @@
 
             // Set ID
             this.id = serverID;
+
+            var animSheet = new cp.animate.sheet('ball.png', 80, 80);
+            this.animPlayer = new cp.animate.cycle(animSheet, 1, [0]);
+            this.animSet = this.animPlayer;
         },
 
         draw: function() {
-	        cp.ctx.fillStyle = this.color;
-	        cp.ctx.fillRect(this.x, this.y, this.width, this.height);
-	        return;
-
-            //this._super();
-
-            cp.ctx.save(); //save the current draw state
-
-			//set drawing area to where the tank is
-			cp.ctx.translate(this.x,this.y);
-
-			//rotate drawing area
-			cp.ctx.rotate(this.angle);
-
-			//set the color to the color of the body of the tank
-			cp.ctx.fillStyle = this.color;"rgb(255,0,255)"; //white
-			//draw rectangle (main body)
-	        cp.ctx.fillRect(-this.length/2,-this.width/2,this.length,this.width);
-
-
-			//set color to grey
-			cp.ctx.fillStyle = this.color;
-			//draw rectangle (front)
-	        cp.ctx.fillRect(0,-this.width/3,this.length/2,this.width*2/3);
-
-			cp.ctx.restore(); //restore the previous draw state
+            this._super();
+//	        cp.ctx.fillStyle = this.color;
+//	        cp.ctx.fillRect(this.x, this.y, this.width, this.height);
+//	        return;
+//
+//            //this._super();
+//
+//            cp.ctx.save(); //save the current draw state
+//
+//			//set drawing area to where the tank is
+//			cp.ctx.translate(this.x,this.y);
+//
+//			//rotate drawing area
+//			cp.ctx.rotate(this.angle);
+//
+//			//set the color to the color of the body of the tank
+//			cp.ctx.fillStyle = this.color;"rgb(255,0,255)"; //white
+//			//draw rectangle (main body)
+//	        cp.ctx.fillRect(-this.length/2,-this.width/2,this.length,this.width);
+//
+//
+//			//set color to grey
+//			cp.ctx.fillStyle = this.color;
+//			//draw rectangle (front)
+//	        cp.ctx.fillRect(0,-this.width/3,this.length/2,this.width*2/3);
+//
+//			cp.ctx.restore(); //restore the previous draw state
         },
 
         /**
          * @todo The keyboard input for directions really needs to be optimized
          */
         update: function () {
-            //this._super();
+            this.angle += cp.core.delta * 0.3;
+
+            if (this.angle > 360) {
+                this.angle -= 360;
+            }
+
+            this._super();
 
             // update our position based on our speed
             this.x = this.x + this.speedX * (cp.core.delta * _deltaSlow); // times momentum
@@ -149,13 +163,18 @@
                     console.log('player smash');
                 }
 
-                obj.speedY *= -1;
-                obj.speedX *= -1;
-                obj.x = obj.x + obj.speedX * (cp.core.delta * _deltaSlow); // times momentum
-                obj.y = obj.y + obj.speedY * (cp.core.delta * _deltaSlow); // times momentum            
-                this.x = this.x + this.speedX * (cp.core.delta * _deltaSlow); // times momentum
-                this.y = this.y + this.speedY * (cp.core.delta * _deltaSlow); // times momentum
- 
+                if(!collided)
+                {
+                    collided = true;
+                    collisionTimer = 100;
+                    obj.speedY *= -1;
+                    obj.speedX *= -1;
+                    obj.x = obj.x + obj.speedX * (cp.core.delta * _deltaSlow); // times momentum
+                    obj.y = obj.y + obj.speedY * (cp.core.delta * _deltaSlow); // times momentum
+                    this.x = this.x + this.speedX * (cp.core.delta * _deltaSlow); // times momentum
+                    this.y = this.y + this.speedY * (cp.core.delta * _deltaSlow); // times momentum
+                }
+
 
             // Must be a powerup
             } else {
@@ -179,6 +198,16 @@
     	type: 'a',
 
     	update: function(){
+    	    // Update timers
+    	    /*if(collided)
+    	    {
+                collisionTimer = collisionTimer - cp.core.delta;
+                if(collisionTimer <= 0) {
+                    collided = false;
+                    collisionTimer = 0;
+                }
+    	    }*/
+
     		//// Update our input
             if (window.DeviceMotionEvent) {
                 this.speedX = Math.round(cp.input.accel.x / 10 * -1);
@@ -205,22 +234,19 @@
                         this.speedY += 1;
                     }
                 }
-                
-                
+
+
                 // Decay speed
                 if((!cp.input.press('up')) && (!cp.input.press('down'))) {
-                    if(this.speedY > 0)
-                    {
+                    if(this.speedY > 0) {
                         this.speedY -= 1;
-                    } else if(this.speedY < 0){
+                    } else if(this.speedY < 0) {
                         this.speedY += 1;
                     }
                 } if(!(cp.input.press('left')) && (!cp.input.press('right'))) {
-                    if(this.speedX < 0)
-                    {
+                    if(this.speedX < 0) {
                         this.speedX += 1;
-                    } else if(this.speedX > 0)
-                    {
+                    } else if(this.speedX > 0) {
                         this.speedX -= 1;
                     }
                 }
@@ -236,6 +262,7 @@
         color: '#f00',
 
     	update: function(){
+            //collisionTimer = collisionTimer - cp.core.delta;
     		//// Speed, Position is updated by the server
     		this._super();
     	},
