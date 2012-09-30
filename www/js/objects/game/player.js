@@ -7,6 +7,8 @@
 
     /** @type {number} Cached reference of game's play area */
     var _gameHeight = null;
+    
+    var _deltaSlow = 1/30;
 
     var _playerSize = 10;
     
@@ -27,15 +29,16 @@
 
         width: 80,
         height: 80,
-        color: '#f0f',
+        color: '#00f',
 
         angle: 0,
 
         speedX: 0,
         speedY: 0,
         accelRate: 0.2,
-        maxSpeed: 5,
-        minSpeed: -5,
+        maxSpeed: 15,
+        minSpeed: -15,
+        decaySpeed: 10,
 
         turnRate: 0.025,
         turnLeft: false,
@@ -98,8 +101,9 @@
             //this._super();
 
             // update our position based on our speed
-            this.x = this.x + this.speedX; // times delta time, times momentum
-            this.y = this.y + this.speedY; // times delta time, times momentum
+            this.x = this.x + this.speedX * (cp.core.delta * _deltaSlow); // times momentum
+            this.y = this.y + this.speedY * (cp.core.delta * _deltaSlow); // times momentum
+
 
 			// Determine boundary collisions
 			//if hitting east side
@@ -144,13 +148,14 @@
                 } else {
                     console.log('player smash');
                 }
+
                 obj.speedY *= -1;
                 obj.speedX *= -1;
-                obj.x = obj.x + obj.speedX * cp.core.delta * 1/16; // times momentum
-                obj.y = obj.y + obj.speedY * cp.core.delta * 1/16; // times momentum            
-                this.x = this.x + this.speedX * cp.core.delta *1/16; // times momentum
-                this.y = this.y + this.speedY * cp.core.delta *1/16; // times momentum
-
+                obj.x = obj.x + obj.speedX * (cp.core.delta * _deltaSlow); // times momentum
+                obj.y = obj.y + obj.speedY * (cp.core.delta * _deltaSlow); // times momentum            
+                this.x = this.x + this.speedX * (cp.core.delta * _deltaSlow); // times momentum
+                this.y = this.y + this.speedY * (cp.core.delta * _deltaSlow); // times momentum
+ 
 
             // Must be a powerup
             } else {
@@ -165,7 +170,7 @@
             //cp.stats.incrementData(6);
 
            // cp.game.spawn('Continue', this);
-           // this._super();
+           this._super();
         }
 
     });
@@ -180,61 +185,45 @@
                 this.speedY = Math.round(cp.input.accel.y / 10 * -1);
             } else {
                 // left
-                if (cp.input.press('left')) {
-                    //this.turnLeft();
-                    if(this.speedX > this.minSpeed)
-                    {
+               if (cp.input.press('left')) {
+                    if(this.speedX > this.minSpeed) {
                         this.speedX -= 1;
                     }
                 // Right
-                } else if (cp.input.press('right')) {
-                    //this.turnRight();
+                } if (cp.input.press('right')) {
                     if(this.speedX < this.maxSpeed) {
                         this.speedX += 1;
                     }
-
                 // Up
-                } else if (cp.input.press('up')) {
-                    /* use accelleration */
-                    //if (this.speed < this.maxSpeed)
-                     //   this.speed += this.accelRate;
-                    if(this.speedY > this.minSpeed)
-                    {
+                } if (cp.input.press('up')) {
+                    if(this.speedY > this.minSpeed) {
                         this.speedY -= 1;
                     }
-                    
                 // Down
-                } else if (cp.input.press('down')) {
-                    if(this.speedY < this.maxSpeed)
-                    {
+                } if (cp.input.press('down')) {
+                    if(this.speedY < this.maxSpeed) {
                         this.speedY += 1;
                     }
                 }
+                
                 
                 // Decay speed
-                var zero = 0;
-                if(cp.input.up('up')) {
-                    if(this.speedY > zero)
+                if((!cp.input.press('up')) && (!cp.input.press('down'))) {
+                    if(this.speedY > 0)
                     {
                         this.speedY -= 1;
-                    }
-                } if(cp.input.up('down')) {
-                    if(this.speedY < 0)
-                    {
+                    } else if(this.speedY < 0){
                         this.speedY += 1;
                     }
-                } if(cp.input.up('left')) {
+                } if(!(cp.input.press('left')) && (!cp.input.press('right'))) {
                     if(this.speedX < 0)
                     {
-                        this.speedx += 1;
-                    }
-                } if(cp.input.up('right')) {
-                    if(this.speedX > 0)
+                        this.speedX += 1;
+                    } else if(this.speedX > 0)
                     {
-                        this.speedx -= 1;
+                        this.speedX -= 1;
                     }
                 }
-                
             }
 
             // Call the Player Update
@@ -244,6 +233,7 @@
 
     cp.template.RemotePlayer = cp.template.Player.extend({
     	type: 'b',
+        color: '#f00',
 
     	update: function(){
     		//// Speed, Position is updated by the server
