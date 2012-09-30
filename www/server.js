@@ -53,6 +53,14 @@ var server = {
 
         this.server = this.http.createServer(this.app).listen(PORT);
         console.log('listening on ' + PORT);
+        
+        this.app.get('/reset', function (req, res) {
+        	console.log('reseting server');
+        	player1 = false;
+        	player2 = false;
+        	entities = {};
+        	res.send('ohai');
+        });
 
         return this.server;
     },
@@ -225,52 +233,82 @@ var app = server.init();
 /* Multiplayer Dragons be here */
 var player1 = '';
 var player2 = '';
-var viewers = []; //array to hold viewers
+var entities = {};
 
 /* */
 io = require('socket.io').listen(app);
+io.set('log level', 1);
 io.sockets.on('connection', function (socket) {
 	this.clientId = socket.id;
-	console.log('player connected');
 	
 	// sends message to client to let them know they are connected
 	socket.emit('clientlog', {msg:"sockets are socketized"});
 	
 	//if player 1 is available
-	if(!player1) {
+	if(!player1 || this.clientId == player1) {
 		console.log("player 1 connected");
 		player1 = this.clientId;
 		
-		socket.emit('spawn-active-player', {id:this.clientId});
+  		// add the player to the entites
+		entities[this.clientId] = {
+			id: player1,
+			type:'player',
+			x:100,
+			y:100
+		};
+		
+		//spawn this on already connected screens
+  		socket.broadcast.emit('spawn-remote-player', entities[this.clientId]);
 		
 	//else if player 2 is available
-	} else if (!player2) {
+	} else if (!player2 || this.clientId == player2) {
 		console.log("player 2 connected");
 		player2 = socket.id;
 		
-		socket.emit('spawn-active-player', {id:this.clientId});
+		// add the player to the entites
+		entities[this.clientId] = {
+			id: player2,
+			type:'player',
+			x:300,
+			y:300
+		};
 		
-		socket.emit('spawn-remote-player', {id: player1});
+		//spawn this on already connected screens
+  		socket.broadcast.emit('spawn-remote-player', entities[this.clientId]);
 		
 	//otherwise they are just a viewer
 	} else {
 		console.log("viewer connected");
-		
-		socket.emit('spawn-remote-player', {id: player1});
-		socket.emit('spawn-remote-player', {id: player2});
+	}
+	
+	//spawn all available entities
+	for(id in entities) {
+		//if this is the active player
+		if(id == this.clientId) {		
+			socket.emit('spawn-active-player', entities[id]);
+		} else {
+			socket.emit('spawn-remote-player', entities[id]);
+		}
 	}
 
 	// when a entity is updated on an active client, send data to other clients
   	socket.on('entity-server-update', function (data) {
+  		entities[data.id] = data;
   		socket.broadcast.emit('entity-client-update', data);
   	});
 	
 	/* when a client disconnects */
   	socket.on('disconnect', function () {
-		io.sockets.emit('user disconnected');
-  		if(this.playerid) {
-  			console.log("player disconnected");
-  			console.log(this.playerid);
+		//io.sockets.emit('user disconnected');
+  		if(socket.id == player1) {
+  			console.log("player 1 disconnected");
+  			delete entities[player1];
+  			player1 = false;
+  		}
+  		if(socket.id == player2) {
+  			console.log("player 2 disconnected");
+  			delete entities[player2];
+  			player2 = false;
   		}
   	});
 });
